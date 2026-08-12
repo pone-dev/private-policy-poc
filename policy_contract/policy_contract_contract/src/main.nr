@@ -30,13 +30,17 @@ pub contract Main {
         self.storage
             .daily_limit
             .at(owner)
-            .initialize(UintNote { value: daily_limit })
+            .initialize(UintNote {
+                value: daily_limit,
+            })
             .deliver(MessageDelivery::onchain_constrained());
 
         self.storage
             .spent_today
             .at(owner)
-            .initialize(UintNote { value: 0 })
+            .initialize(UintNote {
+                value: 0,
+            })
             .deliver(MessageDelivery::onchain_constrained());
     }
 
@@ -59,28 +63,40 @@ pub contract Main {
     fn spend(amount: u128) {
         let owner = self.msg_sender();
 
-        self.storage
+        // Read the current daily limit.
+        //
+        // PrivateMutable::get_note() consumes the current note and
+        // creates a replacement note. We MUST deliver that replacement
+        // so the daily limit remains available for the next transaction.
+        let current_limit = self
+            .storage
             .daily_limit
             .at(owner)
-            .replace(|limit_note| {
-                self.storage
-                    .spent_today
-                    .at(owner)
-                    .replace(|spent_note| {
-                        let new_spent = spent_note.value + amount;
+            .get_note();
 
-                        assert(
-                            new_spent <= limit_note.value,
-                            "Daily spending limit exceeded",
-                        );
+        let limit_note = current_limit.get_note();
 
-                        UintNote {
-                            value: new_spent,
-                        }
-                    })
-                    .deliver(MessageDelivery::onchain_constrained());
+        // Preserve the daily-limit note for future transactions.
+        current_limit.deliver(MessageDelivery::onchain_constrained());
 
-                limit_note
+        // Update the cumulative spending amount.
+        //
+        // replace() consumes the current spent note and creates the
+        // replacement note with the new cumulative value.
+        self.storage
+            .spent_today
+            .at(owner)
+            .replace(|old_spent| {
+                let new_spent = old_spent.value + amount;
+
+                assert(
+                    new_spent <= limit_note.value,
+                    "Daily spending limit exceeded",
+                );
+
+                UintNote {
+                    value: new_spent,
+                }
             })
             .deliver(MessageDelivery::onchain_constrained());
     }

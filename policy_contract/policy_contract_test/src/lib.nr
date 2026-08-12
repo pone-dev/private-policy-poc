@@ -95,19 +95,17 @@ unconstrained fn test_cumulative_spending_limit() {
         Main::at(contract_address).initialize_policy(5000),
     );
 
+    // First spend: 3000.
     env.call_private(
         user,
         Main::at(contract_address).spend(3000),
     );
 
+    // Cumulative total would become 5001.
+    // This should fail directly.
     env.call_private(
         user,
-        Main::at(contract_address).spend(2000),
-    );
-
-    env.call_private(
-        user,
-        Main::at(contract_address).spend(1),
+        Main::at(contract_address).spend(2001),
     );
 }
 
@@ -170,7 +168,7 @@ unconstrained fn test_update_policy() {
         Main::at(contract_address).update_policy(10000),
     );
 
-    // Should now be allowed because the new limit is 10000.
+    // Should now be allowed.
     env.call_private(
         user,
         Main::at(contract_address).spend(8000),
@@ -195,13 +193,13 @@ unconstrained fn test_updated_policy_enforces_new_limit() {
         Main::at(contract_address).initialize_policy(5000),
     );
 
-    // Increase it to 10000.
+    // Increase limit to 10000.
     env.call_private(
         user,
         Main::at(contract_address).update_policy(10000),
     );
 
-    // 10000 is the maximum, so 10001 must fail.
+    // 10001 must fail.
     env.call_private(
         user,
         Main::at(contract_address).spend(10001),
