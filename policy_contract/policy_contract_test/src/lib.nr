@@ -26,11 +26,9 @@ unconstrained fn test_initialize_policy() {
             Main::interface().constructor(),
         );
 
-    let policy = Main::at(contract_address);
-
     env.call_private(
         user,
-        policy.initialize_policy(5000),
+        Main::at(contract_address).initialize_policy(5000),
     );
 }
 
@@ -46,16 +44,14 @@ unconstrained fn test_spend_within_limit() {
             Main::interface().constructor(),
         );
 
-    let policy = Main::at(contract_address);
-
     env.call_private(
         user,
-        policy.initialize_policy(5000),
+        Main::at(contract_address).initialize_policy(5000),
     );
 
     env.call_private(
         user,
-        policy.spend(3000),
+        Main::at(contract_address).spend(3000),
     );
 }
 
@@ -71,16 +67,14 @@ unconstrained fn test_spend_over_limit() {
             Main::interface().constructor(),
         );
 
-    let policy = Main::at(contract_address);
-
     env.call_private(
         user,
-        policy.initialize_policy(5000),
+        Main::at(contract_address).initialize_policy(5000),
     );
 
     env.call_private(
         user,
-        policy.spend(6000),
+        Main::at(contract_address).spend(6000),
     );
 }
 
@@ -96,23 +90,59 @@ unconstrained fn test_cumulative_spending_limit() {
             Main::interface().constructor(),
         );
 
-    let policy = Main::at(contract_address);
-
     env.call_private(
         user,
-        policy.initialize_policy(5000),
+        Main::at(contract_address).initialize_policy(5000),
     );
 
-    // First transaction: 3000 is allowed.
     env.call_private(
         user,
-        policy.spend(3000),
+        Main::at(contract_address).spend(3000),
     );
 
-    // Second transaction: 2500 would make total spending 5500,
-    // which exceeds the 5000 daily limit.
     env.call_private(
         user,
-        policy.spend(2500),
+        Main::at(contract_address).spend(2000),
+    );
+
+    // 3000 + 2000 + 1 = 5001, so this must fail.
+    env.call_private(
+        user,
+        Main::at(contract_address).spend(1),
+    );
+}
+
+#[test]
+unconstrained fn test_multi_user_isolation() {
+    let mut env = TestEnvironment::new();
+
+    let user_a = env.create_light_account();
+    let user_b = env.create_light_account();
+
+    let contract_address = env
+        .deploy("@policy_contract_contract/Main")
+        .with_private_initializer(
+            user_a,
+            Main::interface().constructor(),
+        );
+
+    env.call_private(
+        user_a,
+        Main::at(contract_address).initialize_policy(5000),
+    );
+
+    env.call_private(
+        user_b,
+        Main::at(contract_address).initialize_policy(10000),
+    );
+
+    env.call_private(
+        user_a,
+        Main::at(contract_address).spend(5000),
+    );
+
+    env.call_private(
+        user_b,
+        Main::at(contract_address).spend(10000),
     );
 }
