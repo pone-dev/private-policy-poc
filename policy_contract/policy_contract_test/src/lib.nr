@@ -4,6 +4,7 @@ use policy_contract_contract::Main;
 #[test]
 unconstrained fn test_constructor() {
     let mut env = TestEnvironment::new();
+
     let deployer = env.create_light_account();
 
     let _contract_address = env
@@ -17,6 +18,7 @@ unconstrained fn test_constructor() {
 #[test]
 unconstrained fn test_initialize_policy() {
     let mut env = TestEnvironment::new();
+
     let user = env.create_light_account();
 
     let contract_address = env
@@ -35,6 +37,7 @@ unconstrained fn test_initialize_policy() {
 #[test]
 unconstrained fn test_spend_within_limit() {
     let mut env = TestEnvironment::new();
+
     let user = env.create_light_account();
 
     let contract_address = env
@@ -58,6 +61,7 @@ unconstrained fn test_spend_within_limit() {
 #[test(should_fail_with = "Daily spending limit exceeded")]
 unconstrained fn test_spend_over_limit() {
     let mut env = TestEnvironment::new();
+
     let user = env.create_light_account();
 
     let contract_address = env
@@ -78,9 +82,10 @@ unconstrained fn test_spend_over_limit() {
     );
 }
 
-#[test(should_fail_with = "Daily spending limit exceeded")]
+#[test]
 unconstrained fn test_cumulative_spending_limit() {
     let mut env = TestEnvironment::new();
+
     let user = env.create_light_account();
 
     let contract_address = env
@@ -101,8 +106,39 @@ unconstrained fn test_cumulative_spending_limit() {
         Main::at(contract_address).spend(3000),
     );
 
-    // Cumulative total would become 5001.
-    // This should fail directly.
+    // Second spend: 1500.
+    // Cumulative total = 4500, which is below the 5000 limit.
+    env.call_private(
+        user,
+        Main::at(contract_address).spend(1500),
+    );
+}
+
+#[test(should_fail_with = "Daily spending limit exceeded")]
+unconstrained fn test_cumulative_spending_over_limit() {
+    let mut env = TestEnvironment::new();
+
+    let user = env.create_light_account();
+
+    let contract_address = env
+        .deploy("@policy_contract_contract/Main")
+        .with_private_initializer(
+            user,
+            Main::interface().constructor(),
+        );
+
+    env.call_private(
+        user,
+        Main::at(contract_address).initialize_policy(5000),
+    );
+
+    // First spend: 3000.
+    env.call_private(
+        user,
+        Main::at(contract_address).spend(3000),
+    );
+
+    // Second spend would make the cumulative total 5001.
     env.call_private(
         user,
         Main::at(contract_address).spend(2001),
@@ -147,6 +183,7 @@ unconstrained fn test_multi_user_isolation() {
 #[test]
 unconstrained fn test_update_policy() {
     let mut env = TestEnvironment::new();
+
     let user = env.create_light_account();
 
     let contract_address = env
@@ -156,19 +193,19 @@ unconstrained fn test_update_policy() {
             Main::interface().constructor(),
         );
 
-    // Initial limit: 5000.
+    // Initial limit = 5000.
     env.call_private(
         user,
         Main::at(contract_address).initialize_policy(5000),
     );
 
-    // Update limit: 10000.
+    // Update limit = 10000.
     env.call_private(
         user,
         Main::at(contract_address).update_policy(10000),
     );
 
-    // Should now be allowed.
+    // 8000 is now allowed.
     env.call_private(
         user,
         Main::at(contract_address).spend(8000),
@@ -178,6 +215,7 @@ unconstrained fn test_update_policy() {
 #[test(should_fail_with = "Daily spending limit exceeded")]
 unconstrained fn test_updated_policy_enforces_new_limit() {
     let mut env = TestEnvironment::new();
+
     let user = env.create_light_account();
 
     let contract_address = env
@@ -187,7 +225,7 @@ unconstrained fn test_updated_policy_enforces_new_limit() {
             Main::interface().constructor(),
         );
 
-    // Initial limit: 5000.
+    // Initial limit = 5000.
     env.call_private(
         user,
         Main::at(contract_address).initialize_policy(5000),
@@ -199,7 +237,7 @@ unconstrained fn test_updated_policy_enforces_new_limit() {
         Main::at(contract_address).update_policy(10000),
     );
 
-    // 10001 must fail.
+    // 10001 exceeds the new limit.
     env.call_private(
         user,
         Main::at(contract_address).spend(10001),

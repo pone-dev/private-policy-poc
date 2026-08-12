@@ -51,7 +51,7 @@ pub contract Main {
         self.storage
             .daily_limit
             .at(owner)
-            .replace(|_old_note| {
+            .replace(|_old_limit| {
                 UintNote {
                     value: new_daily_limit,
                 }
@@ -63,26 +63,34 @@ pub contract Main {
     fn spend(amount: u128) {
         let owner = self.msg_sender();
 
-        // Read the current daily limit.
-        //
-        // PrivateMutable::get_note() consumes the current note and
-        // creates a replacement note. We MUST deliver that replacement
-        // so the daily limit remains available for the next transaction.
-        let current_limit = self
+        /*
+         * Read the current daily limit and recreate it.
+         *
+         * PrivateMutable::get_note() performs a nullify-and-recreate
+         * operation. Using the returned NoteMessage's public get_note()
+         * lets us read the UintNote without accessing its private fields.
+         */
+        let limit_message = self
             .storage
             .daily_limit
             .at(owner)
             .get_note();
 
-        let limit_note = current_limit.get_note();
+        let limit_note = limit_message.get_note();
+        let limit_value = limit_note.value;
 
-        // Preserve the daily-limit note for future transactions.
-        current_limit.deliver(MessageDelivery::onchain_constrained());
+        /*
+         * Preserve the recreated daily-limit note for the next
+         * transaction.
+         */
+        limit_message.deliver(MessageDelivery::onchain_constrained());
 
-        // Update the cumulative spending amount.
-        //
-        // replace() consumes the current spent note and creates the
-        // replacement note with the new cumulative value.
+        /*
+         * Update cumulative spending.
+         *
+         * The previous spent_today note is consumed and replaced
+         * with the new cumulative value.
+         */
         self.storage
             .spent_today
             .at(owner)
@@ -90,7 +98,7 @@ pub contract Main {
                 let new_spent = old_spent.value + amount;
 
                 assert(
-                    new_spent <= limit_note.value,
+                    new_spent <= limit_value,
                     "Daily spending limit exceeded",
                 );
 
