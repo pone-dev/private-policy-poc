@@ -1,0 +1,8 @@
+[package]
+name = "policy_contract_test"
+type = "lib"
+
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v5.0.1", directory="aztec" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="v5.0.1", directory="uint-note" }
+policy_contract_contract = { path = "../policy_contract_contract" }

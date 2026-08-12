@@ -1,0 +1,2 @@
+[workspace]
+members = ["policy_contract_contract", "policy_contract_test"]
